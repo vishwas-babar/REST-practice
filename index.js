@@ -9,6 +9,51 @@ const app = express();
 // middleware - plugin
 app.use(express.urlencoded({ extended: true })); // data comming from the client will be added to the req.body
 
+// // middleware 1 - this will run for all the request
+// app.use((req, res, next) => { // next is a callback function which will call the next middleware
+//    console.log('hello from middleware 1');
+
+//    console.log(req.method);
+//    if (req.method === `POST`) {
+//        res.send('POST method is not allowed here');
+//    }else{
+//         next(); // this will call the next middleware if we dont have next middleware then it will call the route handler
+//    }
+
+// });
+
+// middleware 2
+// this middleware is for logging the request in log.txt file
+app.use((req, res, next) => { // next is a callback function which will call the next middleware
+    console.log('hello from middleware 2');
+
+    let now = new Date();
+    let formattedDate = now.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    fs.appendFile('./log.txt', `${req.method} - ${req.url} - ${formattedDate}\n`, (err) => {
+        if (err) {
+            console.log('error:', err);
+        }else{
+            next(); // this will call the next middleware if we dont have next middleware then it will call the route handler
+        }
+    });
+});
+
+// middleware for checking the request has all required data for post request
+app.use((req, res, next) => {
+    if (req.method === 'POST') {
+        const body = req.body;
+        if (!body || !body.first_name || !body.last_name || !body.email || !body.gender || !body.job_title) {
+            return res.status(400).json({status: 'failed', message: 'all required data is not provided'});
+        }else{
+            next();
+        }
+    }else{
+        next();
+    }
+});
+
+
 app.get('/', (req, res) => {
     res.send('home page');
 });
@@ -30,11 +75,15 @@ app.get('/users', (req, res) => {
 
 app.route('/api/users')
     .get((req, res) => {
+        res.setHeader('X-Info', 'this is list of users'); // custom header
+        // it is good practice to always use X- in the custom header nam
+
         res.json(users);
     })
     .post((req, res) => {
         // create new user
         const body = req.body;
+
         let id = users.length + 1;
         body.id = id;
         id++;
@@ -47,6 +96,7 @@ app.route('/api/users')
                 return;
             }else{
                 console.log('New user added');
+                res.status(201); // 201 means created
                 res.json({status: 'success'});
             }
         });
@@ -59,6 +109,11 @@ app.route('/api/users/:id')
     .get((req, res) => {
         let id = Number(req.params.id); // if i use the double equals then i no need to convert the id to number
         let user = users.find((user) => user.id === id);
+
+        // if user is not found then send 404 status code
+        if (!user) {
+            return res.status(404).json({error: 'User not found'});
+        }
 
         if (!user) {
             res.status(404).send('User not found');
