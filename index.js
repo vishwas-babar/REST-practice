@@ -2,30 +2,12 @@
 require('dotenv').config();
 const express = require('express');
 const users = require('./users_data.json');
-
-
-// this function will return the user object if the user is found
-// const getUserById = (id) => {
-//     let is_user_found = false;
-//     let found_user;
-
-//     users.forEach(user => {
-//         if (user.id == id){
-//             is_user_found = true;
-//             found_user = user;
-//         }
-//     });
-
-//     if (is_user_found){
-//         return found_user;
-//     }else{
-//         return false;
-//     }
-// };
-
-
+const fs = require('fs');
 
 const app = express();
+
+// middleware - plugin
+app.use(express.urlencoded({ extended: true })); // data comming from the client will be added to the req.body
 
 app.get('/', (req, res) => {
     res.send('home page');
@@ -52,7 +34,22 @@ app.route('/api/users')
     })
     .post((req, res) => {
         // create new user
-        return res.json({ status: 'pending' });
+        const body = req.body;
+        let id = users.length + 1;
+        body.id = id;
+        id++;
+        console.log(body);
+
+        users.push(body);
+        fs.writeFile('./users_data.json', JSON.stringify(users), (err) => {
+            if (err) {
+                console.log(err);
+                return;
+            }else{
+                console.log('New user added');
+                res.json({status: 'success'});
+            }
+        });
     })
 
 
@@ -72,11 +69,46 @@ app.route('/api/users/:id')
     })
     .patch((req, res) => {
         // edit user with the given id in route parameter
-        return res.json({ status: 'pending' });
+
+        let id = Number(req.params.id);
+        const body = req.body;
+        let index = users.findIndex((user) => user.id === id);
+
+        users[index] = {...users[index], ...body}; // merge the old data with the new data
+        
+        // write the updated data to the file
+        fs.writeFile('./users_data.json', JSON.stringify(users), (err) => {
+            if (err) {
+                console.log(err);
+                res.json({status: 'failed to add updated data in database'});
+                return;
+            }else{
+                console.log('User updated');
+                res.json({status: 'success'});
+            }
+        });
+
     })
     .delete((req, res) => {
         // delete user with the given id in route parameter
-        return res.json({ status: 'pending' });
+        
+        let id = Number(req.params.id);
+
+        let index = users.findIndex((user) => user.id === id);
+        console.log(index);
+        users.splice(index, 1); // remove one element from the given index
+
+        // write the updated data to the file
+        fs.writeFile('./users_data.json', JSON.stringify(users), (err) => {
+            if (err) {
+                console.log(err);
+                res.json({status: 'failed to add update data in database'});
+                return;
+            }else{
+                console.log('User deleted');
+                res.json({status: 'success'});
+            }
+        });
     })
 
 
