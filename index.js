@@ -1,13 +1,20 @@
 
 require('dotenv').config();
 const express = require('express');
-const users = require('./users_data.json');
 const fs = require('fs');
 const { connectMongoDB } = require('./dbConnection');
 
+// for connecting to mongodb
 connectMongoDB();
 
+// get the user model
+const User = require('./user.model.js');
+// get the log model
+const Log = require('./log.model.js');
+
+
 const app = express();
+let id = 0;
 
 // middleware - plugin
 app.use(express.urlencoded({ extended: true })); // data comming from the client will be added to the req.body
@@ -26,20 +33,34 @@ app.use(express.urlencoded({ extended: true })); // data comming from the client
 // });
 
 // middleware 2
-// this middleware is for logging the request in log.txt file
+// this middleware is for logging the request in database
 app.use((req, res, next) => { // next is a callback function which will call the next middleware
     console.log('hello from middleware 2');
 
     let now = new Date();
-    let formattedDate = now.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
-    fs.appendFile('./log.txt', `${req.method} - ${req.url} - ${formattedDate}\n`, (err) => {
-        if (err) {
-            console.log('error:', err);
-        }else{
+    let date = now.toISOString().split('T')[0]; // get date part
+    let time = now.toISOString().split('T')[1].split('.')[0]; // get time part
+
+    console.log(date); // prints date in YYYY-MM-DD format
+    console.log(time); // prints time in HH:mm:ss format
+
+    // create new log in mongodb
+    Log.create({
+        method: req.method,
+        url: req.url,
+        date: date,
+        time: time,
+    })
+        .then((log) => {
+            console.log('log created');
+            console.log(log);
             next(); // this will call the next middleware if we dont have next middleware then it will call the route handler
-        }
-    });
+        })
+        .catch((err) => {
+            console.log('error in creating log:', err);
+            res.status(500); // 500 means internal server error
+            res.json({ status: 'failed', message: err });
+        });
 });
 
 // middleware for checking the request has all required data for post request
@@ -47,28 +68,26 @@ app.use((req, res, next) => {
     if (req.method === 'POST') {
         const body = req.body;
         if (!body || !body.first_name || !body.last_name || !body.email || !body.gender || !body.job_title) {
-            return res.status(400).json({status: 'failed', message: 'all required data is not provided'});
-        }else{
+            return res.status(400).json({ status: 'failed', message: 'all required data is not provided' });
+        } else {
             next();
         }
-    }else{
+    } else {
         next();
     }
 });
 
-
-app.get('/', (req, res) => {
-    res.send('home page');
-});
-
 // this will going to render all the users in the html file
-app.get('/users', (req, res) => {
-    const html = users.map(user => {
+app.get('/users', async (req, res) => {
+
+    allUsers = await User.find({});
+
+    const html = allUsers.map(user => {
         return `<div>
-                    <h1>${user.id}. ${user.first_name} ${user.last_name}</h1>
+                    <h1>${user.id}. ${user.firstName} ${user.lastName}</h1>
                     <p>${user.gender}</p>
                     <p>${user.email}</p>
-                    <p>${user.job_title}</p>
+                    <p>${user.jobTitle}</p>
                 </div>`;
     }).join('');
 
@@ -77,46 +96,51 @@ app.get('/users', (req, res) => {
 
 
 app.route('/api/users')
-    .get((req, res) => {
+    .get(async (req, res) => {
         res.setHeader('X-Info', 'this is list of users'); // custom header
         // it is good practice to always use X- in the custom header nam
-
-        res.json(users);
+        
+        
+        const allUsers = await User.find({});
+        res.json(allUsers);
     })
     .post((req, res) => {
         // create new user
         const body = req.body;
 
-        let id = users.length + 1;
         body.id = id;
-        id++;
         console.log(body);
 
-        users.push(body);
-        fs.writeFile('./users_data.json', JSON.stringify(users), (err) => {
-            if (err) {
-                console.log(err);
-                return;
-            }else{
-                console.log('New user added');
+        // create new user in mongodb
+        User.create({
+            id: body.id,
+            firstName: body.first_name,
+            lastName: body.last_name,
+            email: body.email,
+            gender: body.gender,
+            jobTitle: body.job_title,
+        })
+            .then((user) => {
+                console.log('user created');
+                console.log(user);
                 res.status(201); // 201 means created
-                res.json({status: 'success'});
-            }
-        });
+                res.json({ status: 'success' });
+                id++;
+            })
+            .catch((err) => {
+                console.log('error in creating user:', err);
+                res.status(500); // 500 means internal server error
+                res.json({ status: 'failed', message: err });
+            });
     })
 
 
 // this is dynamic path parameter
 // if we have more than two request method with the same path then we can use the app.route() method
 app.route('/api/users/:id')
-    .get((req, res) => {
-        let id = Number(req.params.id); // if i use the double equals then i no need to convert the id to number
-        let user = users.find((user) => user.id === id);
-
-        // if user is not found then send 404 status code
-        if (!user) {
-            return res.status(404).json({error: 'User not found'});
-        }
+    .get(async (req, res) => {
+        let id = req.params.id; // if i use the double equals then i no need to convert the id to number
+        let user = await User.findById(id);
 
         if (!user) {
             res.status(404).send('User not found');
@@ -125,50 +149,44 @@ app.route('/api/users/:id')
             res.json(user);
         }
     })
-    .patch((req, res) => {
+    .patch(async (req, res) => {
         // edit user with the given id in route parameter
 
-        let id = Number(req.params.id);
+        let id = req.params.id;
         const body = req.body;
-        let index = users.findIndex((user) => user.id === id);
-
-        users[index] = {...users[index], ...body}; // merge the old data with the new data
-        
-        // write the updated data to the file
-        fs.writeFile('./users_data.json', JSON.stringify(users), (err) => {
-            if (err) {
-                console.log(err);
-                res.json({status: 'failed to add updated data in database'});
-                return;
-            }else{
-                console.log('User updated');
-                res.json({status: 'success'});
-            }
+        let user = await User.findByIdAndUpdate(id, {
+            firstName: body.first_name,
+            lastName: body.last_name,
+            email: body.email,
+            gender: body.gender,
+            jobTitle: body.job_title,
         });
 
+        if (!user) {
+            res.status(404).send('User not found');
+            return;
+        } else {
+            res.json({ status: 'success' });
+            console.log('User updated');
+        }
     })
-    .delete((req, res) => {
+    .delete(async (req, res) => {
         // delete user with the given id in route parameter
-        
-        let id = Number(req.params.id);
-
-        let index = users.findIndex((user) => user.id === id);
-        console.log(index);
-        users.splice(index, 1); // remove one element from the given index
-
-        // write the updated data to the file
-        fs.writeFile('./users_data.json', JSON.stringify(users), (err) => {
-            if (err) {
-                console.log(err);
-                res.json({status: 'failed to add update data in database'});
+        try {
+            let id = req.params.id;
+            let user = await User.findByIdAndDelete(id); // this will delete the user with the given id 
+            if (!user) {
+                res.status(404).send('User not found');
                 return;
-            }else{
+            } else {
                 console.log('User deleted');
-                res.json({status: 'success'});
+                res.json({ status: 'success' }).statusCode(200);
             }
-        });
+        } catch (error) {
+            console.log(error);
+            res.status(500).json({ status: 'failed', message: error });
+        }
     })
-
 
 
 app.listen(process.env.PORT, () => {

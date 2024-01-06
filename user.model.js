@@ -5,7 +5,6 @@ const UserSchema = new mongoose.Schema(
         id: {
             type: Number,
             required: true,
-            unique: true,
         },
         firstName: {
             type: String,
@@ -17,11 +16,10 @@ const UserSchema = new mongoose.Schema(
         },
         email: {
             type: String,
-            unique: true,
+            required: true,
         },
         gender: {
             type: String,
-            enum: ['male', 'female', 'other'],
         },
         jobTitle: {
             type: String,
@@ -30,6 +28,6 @@ const UserSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-const User = mongoose.model('User', UserSchema);
+const User = mongoose.model('User', UserSchema); // in collection this will going to show as 'users'
 
 module.exports = User;
