@@ -3,6 +3,9 @@ require('dotenv').config();
 const express = require('express');
 const users = require('./users_data.json');
 const fs = require('fs');
+const { connectMongoDB } = require('./dbConnection');
+
+connectMongoDB();
 
 const app = express();
 
