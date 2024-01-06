@@ -100,7 +100,7 @@ app.route('/api/users')
         res.setHeader('X-Info', 'this is list of users'); // custom header
         // it is good practice to always use X- in the custom header nam
         
-        
+
         const allUsers = await User.find({});
         res.json(allUsers);
     })
@@ -180,7 +180,7 @@ app.route('/api/users/:id')
                 return;
             } else {
                 console.log('User deleted');
-                res.json({ status: 'success' }).statusCode(200);
+                res.json({ status: 'success' });
             }
         } catch (error) {
             console.log(error);
