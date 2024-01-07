@@ -1,6 +1,6 @@
 # Server Project
 
-This project is a simple server built using Express for handling user data. It provides basic CRUD (Create, Read, Update, Delete) functionality for a list of users. The server is implemented in Node.js and uses JSON files to store user data.
+This project is a simple server built using Express for handling user data. It provides basic CRUD (Create, Read, Update, Delete) functionality for a list of users. The server is implemented in Node.js and uses a mongodb to store the data.
 
 ## Table of Contents
 
