@@ -21,17 +21,18 @@ git clone https://github.com/vishwas-babar/REST-practice
 2. Install the dependencies:
 
 ```bash
-npm install express dotenv nodemon
+npm install express dotenv nodemon mongoose
 ```
 ## Configuration
 
 This project uses environment variables for configuration. To set them up:
 
 1. Create a `.env` file in the root directory of the project.
-2. In the `.env` file, set the `PORT` variable to the port you want the server to run on. For example:
+2. In the `.env` file, set the `PORT` variable to the port you want the server to run on and also add the `DB_STRING` For example:
 
 ```env
-PORT=3000
+PORT=4500
+DB_STRING=YOUR_MONGODB_DATABASE_STRING
 ```
 
 ## API Endpoints

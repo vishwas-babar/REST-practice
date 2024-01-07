@@ -1,7 +1,6 @@
 
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 
 // database connection
 const { connectMongoDB } = require('./db/dbConnection.js');
@@ -23,18 +22,8 @@ const app = express();
 app.use(express.urlencoded({ extended: true })); // data comming from the client will be added to the req.body
 
 
-// allowed cors
-app.use(cors(
-    {
-        origin: process.env.ALLOWED_ORIGIN,
-        optionsSuccessStatus: 200,
-    }
-));
-
-
-
 // middleware 1
-// this middleware is for logging the request in database
+// this middleware is for logging the requests in database
 app.use(logRequest);
 
 // middleware for checking the post request has all required data 
